@@ -18,13 +18,13 @@
         sideBar: true,
         statusBar: {
             statusPanels: [
-              { statusPanel: "agTotalAndFilteredRowCountComponent" },
-              { statusPanel: "agTotalRowCountComponent" },
-              { statusPanel: "agFilteredRowCountComponent" },
-              { statusPanel: "agSelectedRowCountComponent" },
-              { statusPanel: "agAggregationComponent" },
+                { statusPanel: "agTotalAndFilteredRowCountComponent" },
+                { statusPanel: "agTotalRowCountComponent" },
+                { statusPanel: "agFilteredRowCountComponent" },
+                { statusPanel: "agSelectedRowCountComponent" },
+                { statusPanel: "agAggregationComponent" },
             ],
-          },
+        },
         rowSelection: 'multiple',
         getRowId: (params) => String(params.data.id),
     };
@@ -58,57 +58,28 @@
         return def;
     }
 
-    const dataCache = []
+    const myWorker = new Worker(`/app/js/worker.js`);
+    myWorker.onmessage = function (e) {
+        const { data } = e;
+        const { type, payload } = data;
 
-    fetch('/api/rows')
-        .then(response => response.json())
-        .then(data => {
+        if (type === 'fullData') {
             console.clear();
-            dataCache.splice(0, dataCache.length, ...data);
-
-            const columnDefs = Object.keys(data[0])
-                .map(key => getColDef(key, data[0][key]));
+            console.log('Data received from worker:', type);
+            
+            gridApi.setGridOption('loading', true);
+            const columnDefs = Object.keys(payload[0])
+                .map(key => getColDef(key, payload[0][key]));
             gridApi.setGridOption('columnDefs', columnDefs);
-            gridApi.setGridOption('rowData', data);
+            gridApi.setGridOption('rowData', payload);
             gridApi.setGridOption('loading', false);
-        })
-        .catch(error => {
-            console.error('Error fetching data:', error);
-        });
-
-    function startWebSocket(isReconnect) {
-        console.log(`${isReconnect ? 'Reconnecting' : 'Connecting'} to WebSocket...`);
-        const ws = new WebSocket(`ws://${location.host}/ws`);
-        ws.onopen = () => {
-            isReconnect && console.clear();
-            console.log('WebSocket is open now.');
-            ws.onclose = () => {
-                console.log('WebSocket is closed now.')
-                setTimeout(() => startWebSocket(true), 3000);
-            };
-        }
-        ws.onerror = (event) => {
-            console.error('WebSocket error observed:', event);
-            setTimeout(() => startWebSocket(true), 3000);
-        };
-
-        ws.onmessage = function (event) {
-            const msg = JSON.parse(event.data),
-                { rows } = msg;
-
-            const existIds = dataCache.map(x => x.id),
-                transaction = {
-                    add: rows.filter(x => !existIds.includes(x.id)),
-                    update: rows.filter(x => existIds.includes(x.id))
-                };
-            dataCache.push(...transaction.add);
-            gridApi.applyTransactionAsync(transaction, () => {
+        } else if (type === 'transaction') {
+            gridApi.applyTransactionAsync(payload, () => {
                 //TODO: check if the row is already exist, then update the row
                 //gridApi.flushAsyncTransactions();
             });
             // gridApi.refreshCells({ force: true });
-        };
+        }
     }
-    startWebSocket();
 
 })()
