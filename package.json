@@ -1,0 +1,15 @@
+{
+  "name": "poc-ssrm-ww",
+  "version": "1.0.0",
+  "description": "Apply SSRM (Server-Side-Row-Mode) on WebWorker with WebAssembly SQLite+IndexedDB",
+  "main": "index.js",
+  "scripts": {
+    "dev": "imock start mock-server.json"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "reed-mock-server": "^0.1.4"
+  }
+}
