@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       reed-mock-server:
-        specifier: ^0.1.5
-        version: 0.1.5
+        specifier: ^0.1.7
+        version: 0.1.7
 
 packages:
 
@@ -399,8 +399,8 @@ packages:
     resolution: {integrity: sha512-8zGqypfENjCIqGhgXToC8aB2r7YrBX+AQAfIPs/Mlk+BtPTztOvTS01NRW/3Eh60J+a48lt8qsCzirQ6loCVfA==}
     engines: {node: '>= 0.8'}
 
-  reed-json-api@1.0.5:
-    resolution: {integrity: sha512-FrZaN3/S5Ld+boCNdMdKYcb0yoYkiUwMG8GhgQ2n1WIecio+7k5Vt1RdSyGlTQZfgSDv2Fdi5KXQByD1eQ32cg==}
+  reed-json-api@1.0.7:
+    resolution: {integrity: sha512-+BSzAoCiVWxTQyN9D6V8N9XoZ/7paEqLYmzcnMjzDXv+tTQS+UNcHxJks38UrtSj1wcwxP37uP31tzcGjEvG9g==}
 
   reed-koa-static@1.0.3:
     resolution: {integrity: sha512-DnEnUbN2V0NIomJmbf/s+ePz894WVeSTSe1ZV3jF4yhCDenBkEELDqyW/1RzuYqhkdIQ+bNt1/oKWUzy6FCDGw==}
@@ -408,8 +408,8 @@ packages:
   reed-koa-websocket@1.0.2:
     resolution: {integrity: sha512-hCCg4adsvYWY6hlHOnsMyYx9xW+5JGqNNN5SkT66aFf1piM8kFAre3mZ/gPtHXgG2NMZSFLri8QTqC/tCqMR8A==}
 
-  reed-mock-server@0.1.5:
-    resolution: {integrity: sha512-uLO74ZpyBn5UHMlxk4ftcw5Qimm9dC4ogRYTSEKTqbXvUBVqEfeie3dBEk4IBleWEb2Gm4lTkqYgO+WSASgTXg==}
+  reed-mock-server@0.1.7:
+    resolution: {integrity: sha512-c4b1rx+dNKkPvHH1gM9tGFMgmF7vy4Z8S+mFQEeLZXQ4P6cTmIbzfHCIvBg56MXHwcE3iX4Tnf8r2horeJOkkQ==}
     hasBin: true
 
   requires-port@1.0.0:
@@ -963,7 +963,7 @@ snapshots:
       iconv-lite: 0.4.24
       unpipe: 1.0.0
 
-  reed-json-api@1.0.5:
+  reed-json-api@1.0.7:
     dependencies:
       debug: 4.4.0
       dummy-json: 3.0.5
@@ -985,7 +985,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  reed-mock-server@0.1.5:
+  reed-mock-server@0.1.7:
     dependencies:
       '@koa/cors': 5.0.0
       commander: 13.1.0
@@ -994,7 +994,7 @@ snapshots:
       koa: 2.16.0
       koa-body: 6.0.1
       koa-router: 13.0.1
-      reed-json-api: 1.0.5
+      reed-json-api: 1.0.7
       reed-koa-static: 1.0.3
       reed-koa-websocket: 1.0.2
     transitivePeerDependencies:

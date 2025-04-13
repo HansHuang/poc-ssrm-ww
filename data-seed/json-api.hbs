@@ -1,9 +1,9 @@
 {
   "config": { "foo": {{boolean}} },
   "rows": [
-    {{#repeat 2000}}
+    {{#repeat 1000}}
     {
-      "id": {{@index}},
+      "id": {{add @index 1000}},
       "issuer": "{{company}}",
       "ticker": "{{code 4}}",
       "cusip": "{{code 9}}",
@@ -81,17 +81,7 @@
       "currencySpread": {{float 0 5 2}},
       "countrySpread": {{float 0 5 2}},
       "sectorSpread": {{float 0 5 2}},
-      "ratingSpread": {{float 0 5 2}},
-      "yieldCurve": {
-        "1Y": {{float 0.1 5 2}},
-        "2Y": {{float 0.1 5 2}},
-        "3Y": {{float 0.1 5 2}},
-        "5Y": {{float 0.1 5 2}},
-        "7Y": {{float 0.1 5 2}},
-        "10Y": {{float 0.1 5 2}},
-        "20Y": {{float 0.1 5 2}},
-        "30Y": {{float 0.1 5 2}}
-      }
+      "ratingSpread": {{float 0 5 2}}
     }
     {{/repeat}}
   ]

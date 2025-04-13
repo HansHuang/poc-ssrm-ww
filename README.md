@@ -24,4 +24,6 @@ For mid-size of data like 100K ~ 1M rows, I'm thinking hack the SSRM, use WebWor
 pnpm install
 pnpm run dev 
 # it may take a few seconds to generate random data
+
+# open: http://localhost:3000/app
 ```

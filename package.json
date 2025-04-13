@@ -10,6 +10,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "reed-mock-server": "^0.1.5"
+    "reed-mock-server": "^0.1.7"
   }
 }
