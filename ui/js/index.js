@@ -30,8 +30,31 @@
     };
 
     const gridApi = agGrid.createGrid(document.querySelector("#myGrid"), gridOptions);
+    console.clear();
 
-    const getColDef = (key, val) => {
+    const myWorker = new Worker(`/app/js/worker.js`);
+    myWorker.onmessage = function (e) {
+        const { data } = e;
+        const { type, payload } = data;
+
+        if (type === 'fullData') {
+            console.log('Data received from worker:', type);
+
+            gridApi.setGridOption('loading', true);
+            const columnDefs = Object.keys(payload[0])
+                .map(key => getColDef(key, payload[0][key]));
+            gridApi.setGridOption('columnDefs', columnDefs);
+            gridApi.setGridOption('rowData', payload);
+            gridApi.setGridOption('loading', false);
+        } else if (type === 'transaction') {
+            gridApi.applyTransactionAsync(payload, () => {
+                //gridApi.flushAsyncTransactions();
+            });
+            // gridApi.refreshCells({ force: true });
+        }
+    }
+
+    function getColDef(key, val) {
         const type = typeof val,
             typeMap = {
                 'string': { cellType: 'text', filter: 'agTextColumnFilter' },
@@ -56,30 +79,6 @@
             def.cellRenderer = params => JSON.stringify(params.data[key]);
         }
         return def;
-    }
-
-    const myWorker = new Worker(`/app/js/worker.js`);
-    myWorker.onmessage = function (e) {
-        const { data } = e;
-        const { type, payload } = data;
-
-        if (type === 'fullData') {
-            console.clear();
-            console.log('Data received from worker:', type);
-            
-            gridApi.setGridOption('loading', true);
-            const columnDefs = Object.keys(payload[0])
-                .map(key => getColDef(key, payload[0][key]));
-            gridApi.setGridOption('columnDefs', columnDefs);
-            gridApi.setGridOption('rowData', payload);
-            gridApi.setGridOption('loading', false);
-        } else if (type === 'transaction') {
-            gridApi.applyTransactionAsync(payload, () => {
-                //TODO: check if the row is already exist, then update the row
-                //gridApi.flushAsyncTransactions();
-            });
-            // gridApi.refreshCells({ force: true });
-        }
     }
 
 })()

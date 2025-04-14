@@ -8,12 +8,17 @@
     // };
     // sqlite3.initWorker1API();
 
-    importScripts('https://cdn.jsdelivr.net/npm/jsstore@4.0.0/dist/jsstore.min.js');
+    
     importScripts('/app/js/dataSvc.js');
+    importScripts('/app/js/storeSvc.js');
 
     const dataCache = [],
+        storeSvc = getStoreSvc({
+            
+        })(),
         dataSvc = getDataSvc({
-            targetSize: 10 * 1000,
+            targetSize: 1 * 1000,
+            JsStore,
             onInitLoad: (rows) => {
                 dataCache.splice(0, dataCache.length, ...rows);
                 postMessage({ type: 'fullData', payload: dataCache });
@@ -39,39 +44,10 @@
         })();
     await dataSvc.load();
     // dataSvc.listen();
+    
     console.log('Data service initialized');
+    await storeSvc.load()
 
-    console.log('Loading data from IndexedDB...');
-    await new Promise(resolve => {
-        const dbRequest = indexedDB.open('MainDB', 1);
-        dbRequest.onerror = event => console.error('Error opening IndexedDB:', event);
-        dbRequest.onsuccess = function (event) {
-            const db = event.target.result;
-            if (db.objectStoreNames.contains('MainStore')) {
-                console.log('Object store exists, loading data...');
-                const transaction = db.transaction('MainStore', 'readonly');
-                const store = transaction.objectStore('MainStore');
-                const rows = store.getAll();
-                rows.onsuccess = function (event) {
-                    const data = event.target.result;
-                    if (data.length > 0) {
-                        console.log('Data loaded from IndexedDB:', data);
-                        dataCache.splice(0, dataCache.length, ...data);
-                        postMessage({ type: 'fullData', payload: data });
-                    } else {
-                        console.log('No data found in IndexedDB');
-                    }
-                    resolve();
-                };
-                rows.onerror = event => {
-                    console.error('Error reading from IndexedDB:', event);
-                    resolve();
-                };
-            } else {
-                resolve();
-            }
-        };
-    })
 
 
     // const dbRequest = indexedDB.open('MainDB', 1);
