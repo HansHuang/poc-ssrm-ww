@@ -1,7 +1,7 @@
 const getStoreSvc = (options) => () => {
 
-    importScripts('/app/js/jsstore.min.js');
-    const connection = new JsStore.Connection(new Worker('/app/js/jsstore.worker.min.js'));
+    importScripts('/app/js/lib/jsstore.min.js');
+    const connection = new JsStore.Connection(new Worker('/app/js/lib/jsstore.worker.min.js'));
 
 
     return {
