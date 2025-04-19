@@ -6,6 +6,7 @@ const getStoreSvc = (options) => () => {
 
     return {
         load: async () => {
+            console.log('Loading data from IndexedDB...');
             const [data] = await fetch('/api/rows?_page=1&_size=1').then(r => r.json()),
                 colDef = Object.keys(data).reduce((res, key) => {
                     res[key] = { datetype: typeof data[key] }
@@ -31,7 +32,7 @@ const getStoreSvc = (options) => () => {
                 upsert: true,
                 values: rows
             });
-            console.log('Data inserted into IndexedDB:', result);
+            console.log('Data upsert into IndexedDB:', result);
         },
         clear: async () => {
             await connection.clear('mainTable');
