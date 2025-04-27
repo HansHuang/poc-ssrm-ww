@@ -84,17 +84,18 @@ const getStoreSvc = (options) => () => {
         },
         query: async (request) => {
             const now = Date.now();
-            const result = await connection.select(getSelector(request)).then(x => {
+            const result = await connection.select(getSelector(request)).then(rows => {
                 if (request.groupBy?.fields?.length) {
                     const key = request.groupBy.fields[0],
                         aggs = request.groupBy.aggs.map(x => ({ field: x.field, aggField: `${x.aggFunc}(${x.field})` }));
-                    aggs.push({ field: key, aggField: `count(${key})` });
-                    console.log('pre-processed agg result: ', aggs)
-                    //TODO: leave agg values
-                    x = x.map(row => ({ id: `${key}:${row[key]}`, [key]: row[key], ChildCount: row[`count(${key})`] }));
+                    rows = rows.map(row => {
+                        const newRow = { id: `${key}:${row[key]}`, [key]: row[key], ChildCount: row[`count(${key})`] };
+                        aggs.forEach(({ field, aggField }) => newRow[field] = row[aggField]);
+                        return newRow;
+                    });
                 }
-                console.log(`Data from IndexedDB: ${x.length} rows on ${Date.now() - now}ms`, x);
-                return x;
+                console.log(`Data from IndexedDB: ${rows.length} rows on ${Date.now() - now}ms`, rows);
+                return rows;
             }).catch(error => {
                 console.error('Error reading data from IndexedDB:', error);
                 return [];
