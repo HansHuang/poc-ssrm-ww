@@ -2,6 +2,9 @@
 
     const gridOptions = {
         theme: agGrid.themeBalham,
+        rowModelType: 'serverSide',
+        cacheBlockSize: 200,
+        maxBlocksInCache: 3,
         loading: true,
         autoSizeStrategy: {
             type: 'fitCellContents'
@@ -18,41 +21,13 @@
         sideBar: true,
         statusBar: {
             statusPanels: [
-                { statusPanel: "agTotalAndFilteredRowCountComponent" },
-                { statusPanel: "agTotalRowCountComponent" },
-                { statusPanel: "agFilteredRowCountComponent" },
                 { statusPanel: "agSelectedRowCountComponent" },
                 { statusPanel: "agAggregationComponent" },
             ],
         },
-        rowSelection: 'multiple',
         getRowId: (params) => String(params.data.id),
+        getChildCount: (data) => data.ChildCount
     };
-
-    const gridApi = agGrid.createGrid(document.querySelector("#myGrid"), gridOptions);
-    console.clear();
-
-    const myWorker = new Worker(`/app/js/worker.js`);
-    myWorker.onmessage = function (e) {
-        const { data } = e;
-        const { type, payload } = data;
-
-        if (type === 'fullData') {
-            console.log('Data received from worker:', type);
-
-            gridApi.setGridOption('loading', true);
-            const columnDefs = Object.keys(payload[0])
-                .map(key => getColDef(key, payload[0][key]));
-            gridApi.setGridOption('columnDefs', columnDefs);
-            gridApi.setGridOption('rowData', payload);
-            gridApi.setGridOption('loading', false);
-        } else if (type === 'transaction') {
-            gridApi.applyTransactionAsync(payload, () => {
-                //gridApi.flushAsyncTransactions();
-            });
-            // gridApi.refreshCells({ force: true });
-        }
-    }
 
     function getColDef(key, val) {
         const type = typeof val,
@@ -78,7 +53,42 @@
         } else if (type === 'object') {
             def.cellRenderer = params => JSON.stringify(params.data[key]);
         }
+        if (key === 'id') {
+            def.hide = true;
+        }
         return def;
     }
+
+    function getUuid() {
+        const uuid = new Uint32Array(4);
+        window.crypto.getRandomValues(uuid);
+        return uuid.reduce((acc, val) => acc + val.toString(16).padStart(8, '0'), '');
+    }
+
+    const gridApi = agGrid.createGrid(document.querySelector("#myGrid"), gridOptions);
+    console.clear();
+
+    const msgQueue = {},
+        myWorker = new Worker(`/app/js/worker.js`);
+    myWorker.addEventListener('message', function (e) {
+        const { uuid, type, payload } = e.data;
+        if (type === 'initRow') {
+            const defs = Object.keys(payload).map(key => getColDef(key, payload[key]));
+            gridApi.setGridOption('columnDefs', defs);
+            gridApi.setGridOption('loading', false);
+        } else if (type === 'resRows') {
+            const { params } = msgQueue[uuid] ?? {};
+            delete msgQueue[uuid];
+            const { rows } = payload;
+            params?.success({ rowData: rows });
+        }
+    });
+    gridApi.setGridOption('serverSideDatasource', {
+        getRows: (params) => {
+            const uuid = getUuid();
+            msgQueue[uuid] = { params };
+            myWorker.postMessage({ uuid, type: 'getRows', payload: params.request });
+        }
+    });
 
 })()

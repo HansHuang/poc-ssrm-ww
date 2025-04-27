@@ -25,6 +25,10 @@ const getDataSvc = (options) => () => {
     }
 
     return {
+        init: async () => {
+            const data = await fetch('/api/rows?_page=1&_size=1').then(r => r.json());
+            return Array.isArray(data) && data.length ? data[0] : null;
+        },
         load: async () => {
             const data = await fetch('/api/rows').then(r => r.json());
             onInitLoad(data);
