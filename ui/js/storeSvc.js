@@ -4,14 +4,13 @@ const getStoreSvc = (options) => () => {
     const connection = new JsStore.Connection(new Worker('/app/js/lib/jsstore.worker.min.js'));
 
     function getSelector({ startRow, endRow, sortBy, filterBy, groupBy, pivotBy }) {
-        const selector = {
-            from: 'mainTable',
-            skip: startRow,
-            limit: endRow - startRow
-        };
+        // pagination
+        const selector = { from: 'mainTable', skip: startRow, limit: endRow - startRow };
+        //sorting
         if (Array.isArray(sortBy) && sortBy.length) {
             selector.order = sortBy.map(({ colId, sort }) => ({ by: colId, type: sort }));
         }
+        //filtering
         if (Array.isArray(filterBy) && filterBy.length) {
             const where = {}
             filterBy.forEach(({ key, value, value2, operator, dataType }) => {
@@ -45,21 +44,23 @@ const getStoreSvc = (options) => () => {
             });
             selector.where = where;
         }
+        //grouping
         const builtinAgg = ['count', 'sum', 'avg', 'min', 'max'];
         if (groupBy && groupBy.fields?.length) {
             selector.groupBy = [groupBy.fields[0]];
-            // TODO: merge agg function for multiple fields
-            selector.aggregate = groupBy.aggs.reduce((acc, { field, aggFunc }) => {
-                if (builtinAgg.includes(aggFunc)) {
-                    acc[aggFunc] = field;
-                }
-                return acc;
-            }, {});
-            Object.assign(selector.aggregate, { count: groupBy.fields[0] });
-            if (!groupBy.aggs.length) {
-                selector.aggregate = { count: groupBy.fields[0] }
+            selector.aggregate = groupBy.aggs.
+                filter(x => builtinAgg.includes(x.aggFunc))
+                .reduce((acc, { field, aggFunc }) => {
+                    acc[aggFunc] = Array.isArray(acc[aggFunc]) ? [...acc[aggFunc], field] : [field]
+                    return acc;
+                }, {})
+            if (!Array.isArray(selector.aggregate.count)) {
+                selector.aggregate.count = [groupBy.fields[0]]
+            } else if (!selector.aggregate.count.includes(groupBy.field[0])) {
+                selector.aggregate.count.push(groupBy.fields[0])
             }
         }
+        //pivoting`
         if (Array.isArray(pivotBy) && pivotBy.length) {
             selector.pivot = pivotBy;
         }
@@ -85,7 +86,10 @@ const getStoreSvc = (options) => () => {
             const now = Date.now();
             const result = await connection.select(getSelector(request)).then(x => {
                 if (request.groupBy?.fields?.length) {
-                    const key = request.groupBy.fields[0];
+                    const key = request.groupBy.fields[0],
+                        aggs = request.groupBy.aggs.map(x => ({ field: x.field, aggField: `${x.aggFunc}(${x.field})` }));
+                    aggs.push({ field: key, aggField: `count(${key})` });
+                    console.log('pre-processed agg result: ', aggs)
                     //TODO: leave agg values
                     x = x.map(row => ({ id: `${key}:${row[key]}`, [key]: row[key], ChildCount: row[`count(${key})`] }));
                 }
