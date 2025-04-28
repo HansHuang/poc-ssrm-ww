@@ -79,8 +79,9 @@
         } else if (type === 'resRows') {
             const { params } = msgQueue[uuid] ?? {};
             delete msgQueue[uuid];
-            const { rows } = payload;
-            params?.success({ rowData: rows });
+            const { rows, pivotCols } = payload;
+            pivotCols && gridApi.setPivotResultColumns(pivotCols);
+            params.success({ rowData: rows });
         }
     });
     gridApi.setGridOption('serverSideDatasource', {

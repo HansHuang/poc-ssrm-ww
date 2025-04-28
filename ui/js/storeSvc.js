@@ -47,7 +47,7 @@ const getStoreSvc = (options) => () => {
         //grouping
         const builtinAgg = ['count', 'sum', 'avg', 'min', 'max'];
         if (groupBy && groupBy.fields?.length) {
-            selector.groupBy = [groupBy.fields[0]];
+            selector.groupBy = groupBy.fields;
             selector.aggregate = groupBy.aggs.
                 filter(x => builtinAgg.includes(x.aggFunc))
                 .reduce((acc, { field, aggFunc }) => {
@@ -89,7 +89,8 @@ const getStoreSvc = (options) => () => {
                     const key = request.groupBy.fields[0],
                         aggs = request.groupBy.aggs.map(x => ({ field: x.field, aggField: `${x.aggFunc}(${x.field})` }));
                     rows = rows.map(row => {
-                        const newRow = { id: `${key}:${row[key]}`, [key]: row[key], ChildCount: row[`count(${key})`] };
+                        const newRow = { id: `${key}:${row[key]}`, ChildCount: row[`count(${key})`] };
+                        request.groupBy.fields.forEach(field => newRow[field] = row[field]);
                         aggs.forEach(({ field, aggField }) => newRow[field] = row[aggField]);
                         return newRow;
                     });
