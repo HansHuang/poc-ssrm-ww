@@ -95,7 +95,7 @@ const getStoreSvc = (options) => () => {
                         return newRow;
                     });
                 }
-                console.log(`Data from IndexedDB: ${rows.length} rows on ${Date.now() - now}ms`, rows);
+                console.log(`Data from IndexedDB: ${rows.length} rows on ${Date.now() - now}ms`); //rows
                 return rows;
             }).catch(error => {
                 console.error('Error reading data from IndexedDB:', error);

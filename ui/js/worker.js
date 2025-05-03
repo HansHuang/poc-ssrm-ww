@@ -53,7 +53,8 @@
         if (type === 'getRows') {
             console.log(payload);
             //sorting
-            const { startRow, endRow, filterModel, sortModel: sortBy } = payload;
+            const sortBy = payload.sortModel.filter(x => !x.colId.startsWith('ag-Grid')),
+                { startRow, endRow, filterModel } = payload;
             //filtering
             const filterBy = Object.keys(filterModel).map(key => {
                 const { filter, filterType, filterTo, type } = filterModel[key];
@@ -85,11 +86,12 @@
             const pivotColKeys = [],
                 pivotData = [],
                 pivotCols = [];
-            rows.forEach(row => {
+            rows.forEach((row, index) => {
                 const newRow = pivotData.find(x => rowFields.every(key => x[key] === row[key]))
                     ?? rowFields.reduce((acc, key) => ({ ...acc, [key]: row[key] }), {});
 
                 newRow.ChildCount = (row.ChildCount ?? 0) + (row.ChildCount ?? 0);
+                newRow.id = `${index}_${row[rowFields[0]]}`;
 
                 valueFields.forEach(({ field, aggFunc }) => {
                     const colKey = [...columnFields.map(x => row[x]), field].join('_'),
