@@ -28,3 +28,8 @@ pnpm run dev
 
 # for first time open in browser, it'll take ~1min to cache 100K data to IndexedDB
 ```
+
+
+### Compare Result of SSRM
+
+* __JSStore on IndexedDB__: avg 3700ms ~ 4500ms for 100k rows * 80 cols

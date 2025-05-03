@@ -6,7 +6,7 @@
     let idList = [];
     const storeSvc = getStoreSvc({})(),
         dataSvc = getDataSvc({
-            targetSize: 10 * 1000,
+            targetSize: 100 * 1000,
             JsStore,
             onInitLoad: (rows) => {
                 idList = rows.map(x => x.id);
@@ -53,7 +53,7 @@
         if (type === 'getRows') {
             console.log(payload);
             //sorting
-            const sortBy = payload.sortModel.filter(x => !x.colId.startsWith('ag-Grid')),
+            const sortBy = payload.sortModel.filter(x => !x.colId.startsWith('ag-Grid')).map(x => ({ key: x.colId, order: x.sort })),
                 { startRow, endRow, filterModel } = payload;
             //filtering
             const filterBy = Object.keys(filterModel).map(key => {

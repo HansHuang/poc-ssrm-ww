@@ -8,7 +8,7 @@ const getStoreSvc = (options) => () => {
         const selector = { from: 'mainTable', skip: startRow, limit: endRow - startRow };
         //sorting
         if (Array.isArray(sortBy) && sortBy.length) {
-            selector.order = sortBy.map(({ colId, sort }) => ({ by: colId, type: sort }));
+            selector.order = sortBy.map(({ key, order }) => ({ by: key, type: order }));
         }
         //filtering
         if (Array.isArray(filterBy) && filterBy.length) {
