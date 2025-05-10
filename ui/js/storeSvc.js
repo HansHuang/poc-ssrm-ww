@@ -3,6 +3,15 @@ const getStoreSvc = (options) => () => {
     importScripts('/app/js/lib/jsstore.min.js');
     const connection = new JsStore.Connection(new Worker('/app/js/lib/jsstore.worker.min.js'));
 
+    if (options?.useSqlite) {
+        importScripts(`/app/js/lib/sqlite3.js`);
+        sqlite3InitModule().then(sqlite3 => {
+            console.log("sqlite3 version",sqlite3.capi.sqlite3_libversion(), sqlite3.capi.sqlite3_sourceid());
+            const db = new sqlite3.oo1.DB("/mydb.sqlite3",'ct');
+            db.exec("CREATE TABLE IF NOT EXISTS mainTable (id INTEGER PRIMARY KEY, data TEXT);")
+        });
+    }
+
     function getSelector({ startRow, endRow, sortBy, filterBy, groupBy, pivotBy }) {
         // pagination
         const selector = { from: 'mainTable', skip: startRow, limit: endRow - startRow };

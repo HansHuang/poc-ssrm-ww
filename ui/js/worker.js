@@ -4,7 +4,7 @@
     importScripts('/app/js/storeSvc.js');
 
     let idList = [];
-    const storeSvc = getStoreSvc({})(),
+    const storeSvc = getStoreSvc({useSqlite: true})(),
         dataSvc = getDataSvc({
             targetSize: 100 * 1000,
             JsStore,
