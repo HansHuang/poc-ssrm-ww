@@ -51,7 +51,7 @@
     onmessage = async function (e) {
         const { uuid, type, payload } = e.data;
         if (type === 'getRows') {
-            console.log(payload);
+            console.log('[Worker] getRows payload:', payload);
             //sorting
             const sortBy = payload.sortModel.filter(x => !x.colId.startsWith('ag-Grid')).map(x => ({ key: x.colId, order: x.sort })),
                 { startRow, endRow, filterModel } = payload;

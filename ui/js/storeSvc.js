@@ -2,13 +2,41 @@ const getStoreSvc = (options) => () => {
 
     importScripts('/app/js/lib/jsstore.min.js');
     const connection = new JsStore.Connection(new Worker('/app/js/lib/jsstore.worker.min.js'));
+    let db = null;
 
-    if (options?.useSqlite) {
+
+    function initSqlite(data) {
         importScripts(`/app/js/lib/sqlite3.js`);
         sqlite3InitModule().then(sqlite3 => {
-            console.log("sqlite3 version",sqlite3.capi.sqlite3_libversion(), sqlite3.capi.sqlite3_sourceid());
-            const db = new sqlite3.oo1.DB("/mydb.sqlite3",'ct');
-            db.exec("CREATE TABLE IF NOT EXISTS mainTable (id INTEGER PRIMARY KEY, data TEXT);")
+            console.log("sqlite3 version", sqlite3.capi.sqlite3_libversion());
+            db = new sqlite3.oo1.DB("mytemp.sqlite3", 'c');
+            const colStr = Object.keys(data).filter(x => x != 'id').reduce((res, key) => {
+                const type = typeof data[key];
+                if (type === 'number') res += `${key} REAL, `;
+                else if (type === 'boolean') res += `${key} BOOLEAN, `;
+                else res += `${key} TEXT, `;
+                return res;
+            }, 'id integer PRIMARY KEY, ').slice(0, -2);
+            db.exec(`CREATE TABLE IF NOT EXISTS mainTable (${colStr})`);
+        }).then(async () => {
+            let count = await new Promise((resolve, rej) => {
+                db.exec({ sql: `SELECT COUNT(*) as count FROM mainTable`, callback: (res) => resolve(res[0]) });
+            });
+            if (count === 0) {
+                console.log('loading data into sqlite3');
+                const rows = await connection.select({ from: 'mainTable' });
+                const tran = db.prepare([`INSERT INTO mainTable (${Object.keys(data).join(',')}) VALUES (${Object.keys(data).map(x => '?').join(',')})`])
+                for (const row of rows) {
+                    tran.bind(Object.values(row)).step();
+                    tran.reset();
+                }
+                tran.finalize();
+            }
+            db.exec({
+                sql: `SELECT count(id) as Count FROM mainTable`, callback: (res) => {
+                    console.log('sqlite3 data loaded successfully, count:', res[0]);
+                }
+            });
         });
     }
 
@@ -89,6 +117,7 @@ const getStoreSvc = (options) => () => {
             await connection.initDb({ name: "mainDB", tables: [{ name: "mainTable", columns: colDef }] });
             const count = await connection.count({ from: 'mainTable' });
             console.log('IndexedDB initialized successfully, count:', count);
+            options?.useSqlite && initSqlite(data);
             return count
         },
         query: async (request) => {

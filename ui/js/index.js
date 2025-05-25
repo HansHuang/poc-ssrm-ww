@@ -66,7 +66,7 @@
     }
 
     const gridApi = agGrid.createGrid(document.querySelector("#myGrid"), gridOptions);
-    // console.clear();
+    console.clear();
 
     const msgQueue = {},
         myWorker = new Worker(`/app/js/worker.js`);
