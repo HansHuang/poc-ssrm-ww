@@ -9,8 +9,15 @@
 
 <body data-ag-theme-mode="dark-blue" class="bg-white dark:bg-gray-950">
     <div class="p-2 h-screen flex flex-col">
-        <h1 class="text-3xl font-bold mb-4 dark:text-white">POC</h1>
+        <div class="flex items-center justify-between mb-4 pr-6">
+            <h1 class="text-3xl font-bold dark:text-white">POC</h1>
+            <label class="flex items-center gap-2 text-sm dark:text-gray-200 cursor-pointer">
+                <input type="checkbox" id="useSqliteCheckbox" class="w-4 h-4 cursor-pointer">
+                <span>Use SQLite</span>
+            </label>
+        </div>
         <div id="myGrid" class="grow" ></div>
+        <div id="gridFooter" class="text-xs p-1 bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"></div>
     </div>
 </body>
 <script src="js/index.js"></script>

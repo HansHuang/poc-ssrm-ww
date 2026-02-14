@@ -7,7 +7,7 @@ const getStoreSvc = (options) => () => {
 
     function initSqlite(data) {
         importScripts(`/app/js/lib/sqlite3.js`);
-        sqlite3InitModule().then(sqlite3 => {
+        return sqlite3InitModule().then(sqlite3 => {
             console.log("sqlite3 version", sqlite3.capi.sqlite3_libversion());
             db = new sqlite3.oo1.DB("mytemp.sqlite3", 'c');
             const colStr = Object.keys(data).filter(x => x != 'id').reduce((res, key) => {
@@ -18,29 +18,47 @@ const getStoreSvc = (options) => () => {
                 return res;
             }, 'id integer PRIMARY KEY, ').slice(0, -2);
             db.exec(`CREATE TABLE IF NOT EXISTS mainTable (${colStr})`);
-        }).then(async () => {
-            let count = await new Promise((resolve, rej) => {
-                db.exec({ sql: `SELECT COUNT(*) as count FROM mainTable`, callback: (res) => resolve(res[0]) });
+            return db;
+        }).then(async (database) => {
+            let countResult = await new Promise((resolve, reject) => {
+                database.exec({ sql: `SELECT COUNT(*) as count FROM mainTable`, callback: (res) => resolve(res[0]) });
             });
+            const count = countResult?.count || 0;
             if (count === 0) {
                 console.log('loading data into sqlite3');
                 const rows = await connection.select({ from: 'mainTable' });
-                const tran = db.prepare([`INSERT INTO mainTable (${Object.keys(data).join(',')}) VALUES (${Object.keys(data).map(x => '?').join(',')})`])
+                // Use the same key order as the table was created
+                const keys = ['id', ...Object.keys(data).filter(x => x !== 'id')];
+                const tran = database.prepare(`INSERT INTO mainTable (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`);
                 for (const row of rows) {
-                    tran.bind(Object.values(row)).step();
+                    const values = keys.map(key => {
+                        const val = row[key];
+                        if (val === null || val === undefined) return null;
+                        if (typeof val === 'object') return JSON.stringify(val);
+                        if (typeof val === 'boolean') return val ? 1 : 0;
+                        return val;
+                    });
+                    tran.bind(values).step();
                     tran.reset();
                 }
                 tran.finalize();
             }
-            db.exec({
-                sql: `SELECT count(id) as Count FROM mainTable`, callback: (res) => {
-                    console.log('sqlite3 data loaded successfully, count:', res[0]);
-                }
+            return new Promise((resolve, reject) => {
+                database.exec({
+                    sql: `SELECT count(id) as Count FROM mainTable`,
+                    callback: (res) => {
+                        console.log('sqlite3 data loaded successfully, count:', res[0]);
+                        resolve(res[0]);
+                    }
+                });
             });
+        }).catch(error => {
+            console.error('Error initializing sqlite3:', error);
+            throw error;
         });
     }
 
-    function getSelector({ startRow, endRow, sortBy, filterBy, groupBy, pivotBy }) {
+    async function queryJsStore({ startRow, endRow, sortBy, filterBy, groupBy, pivotBy }) {
         // pagination
         const selector = { from: 'mainTable', skip: startRow, limit: endRow - startRow };
         //sorting
@@ -48,37 +66,8 @@ const getStoreSvc = (options) => () => {
             selector.order = sortBy.map(({ key, order }) => ({ by: key, type: order }));
         }
         //filtering
-        if (Array.isArray(filterBy) && filterBy.length) {
-            const where = {}
-            filterBy.forEach(({ key, value, value2, operator, dataType }) => {
-                if (operator === 'equals') {
-                    where[key] = value;
-                } else if (operator === 'notEquals') {
-                    where[key] = { '!=': value }
-                } else if (operator === 'contains') {
-                    where[key] = { like: `%${value}%` }
-                } else if (operator === 'notContains') {
-                    // where[key] = { [dataType]: { notLike: `%${value}%` } };
-                } else if (operator === 'startsWith') {
-                    where[key] = { like: `${value}%` };
-                } else if (operator === 'endsWith') {
-                    where[key] = { like: `%${value}` };
-                } else if (operator === 'greaterThan') {
-                    where[key] = { '>': value }
-                } else if (operator === 'lessThan') {
-                    where[key] = { '<': value }
-                } else if (operator === 'greaterThanOrEqual') {
-                    where[key] = { '>=': value }
-                } else if (operator === 'lessThanOrEqual') {
-                    where[key] = { '<=': value };
-                } else if (operator === 'inRange') {
-                    where[key] = { '-': { low: value, high: value2 } };
-                } else if (operator === 'blank') {
-                    where[key] = null
-                } else if (operator === 'isNotNull') {
-                    where[key] = { '!=': null }
-                }
-            });
+        const where = buildWhereClause(filterBy);
+        if (where) {
             selector.where = where;
         }
         //grouping
@@ -102,7 +91,168 @@ const getStoreSvc = (options) => () => {
             selector.pivot = pivotBy;
         }
         console.log('Selector:', selector);
-        return selector;
+        return await connection.select(selector)
+    }
+
+    function buildWhereClause(filterBy) {
+        if (!Array.isArray(filterBy) || !filterBy.length) {
+            return null;
+        }
+        const where = {};
+        filterBy.forEach(({ key, value, value2, operator, dataType }) => {
+            if (operator === 'equals') {
+                where[key] = value;
+            } else if (operator === 'notEquals') {
+                where[key] = { '!=': value }
+            } else if (operator === 'contains') {
+                where[key] = { like: `%${value}%` }
+            } else if (operator === 'notContains') {
+                // where[key] = { [dataType]: { notLike: `%${value}%` } };
+            } else if (operator === 'startsWith') {
+                where[key] = { like: `${value}%` };
+            } else if (operator === 'endsWith') {
+                where[key] = { like: `%${value}` };
+            } else if (operator === 'greaterThan') {
+                where[key] = { '>': value }
+            } else if (operator === 'lessThan') {
+                where[key] = { '<': value }
+            } else if (operator === 'greaterThanOrEqual') {
+                where[key] = { '>=': value }
+            } else if (operator === 'lessThanOrEqual') {
+                where[key] = { '<=': value };
+            } else if (operator === 'inRange') {
+                where[key] = { '-': { low: value, high: value2 } };
+            } else if (operator === 'blank') {
+                where[key] = null
+            } else if (operator === 'isNotNull') {
+                where[key] = { '!=': null }
+            }
+        });
+        return where;
+    }
+
+    function buildSqlWhereClause(filterBy) {
+        if (!Array.isArray(filterBy) || !filterBy.length) {
+            return { sql: '', params: [] };
+        }
+        
+        const whereClauses = [];
+        const params = [];
+        
+        filterBy.forEach(({ key, value, value2, operator }) => {
+            if (operator === 'equals') {
+                whereClauses.push(`${key} = ?`);
+                params.push(value);
+            } else if (operator === 'notEquals') {
+                whereClauses.push(`${key} != ?`);
+                params.push(value);
+            } else if (operator === 'contains') {
+                whereClauses.push(`${key} LIKE ?`);
+                params.push(`%${value}%`);
+            } else if (operator === 'startsWith') {
+                whereClauses.push(`${key} LIKE ?`);
+                params.push(`${value}%`);
+            } else if (operator === 'endsWith') {
+                whereClauses.push(`${key} LIKE ?`);
+                params.push(`%${value}`);
+            } else if (operator === 'greaterThan') {
+                whereClauses.push(`${key} > ?`);
+                params.push(value);
+            } else if (operator === 'lessThan') {
+                whereClauses.push(`${key} < ?`);
+                params.push(value);
+            } else if (operator === 'greaterThanOrEqual') {
+                whereClauses.push(`${key} >= ?`);
+                params.push(value);
+            } else if (operator === 'lessThanOrEqual') {
+                whereClauses.push(`${key} <= ?`);
+                params.push(value);
+            } else if (operator === 'inRange') {
+                whereClauses.push(`${key} BETWEEN ? AND ?`);
+                params.push(value, value2);
+            } else if (operator === 'blank') {
+                whereClauses.push(`${key} IS NULL`);
+            } else if (operator === 'isNotNull') {
+                whereClauses.push(`${key} IS NOT NULL`);
+            }
+        });
+        
+        return {
+            sql: whereClauses.length ? ' WHERE ' + whereClauses.join(' AND ') : '',
+            params
+        };
+    }
+
+    async function querySqlite({ startRow, endRow, sortBy, filterBy, groupBy, pivotBy }) {
+        if (!db) {
+            throw new Error('SQLite database not initialized');
+        }
+
+        let sql = 'SELECT ';
+        const params = [];
+        
+        // Grouping and aggregation
+        if (groupBy && groupBy.fields?.length) {
+            const fields = groupBy.fields.join(', ');
+            const countField = `COUNT(${groupBy.fields[0]}) as 'count(${groupBy.fields[0]})'`;
+            const aggs = groupBy.aggs.map(({ field, aggFunc }) => {
+                const func = aggFunc.toUpperCase();
+                return `${func}(${field}) as '${aggFunc}(${field})'`;
+            }).join(', ');
+            
+            // Build select list
+            const selectParts = [fields, countField];
+            if (aggs) {
+                selectParts.push(aggs);
+            }
+            sql += selectParts.join(', ');
+        } else {
+            sql += '*';
+        }
+        
+        sql += ' FROM mainTable';
+        
+        // Filtering
+        const whereClause = buildSqlWhereClause(filterBy);
+        sql += whereClause.sql;
+        params.push(...whereClause.params);
+        
+        // Grouping
+        if (groupBy && groupBy.fields?.length) {
+            sql += ` GROUP BY ${groupBy.fields.join(', ')}`;
+        }
+        
+        // Sorting
+        if (Array.isArray(sortBy) && sortBy.length) {
+            const orderBy = sortBy.map(({ key, order }) => 
+                `${key} ${order.toUpperCase()}`
+            ).join(', ');
+            sql += ` ORDER BY ${orderBy}`;
+        }
+        
+        // Pagination
+        sql += ` LIMIT ? OFFSET ?`;
+        params.push(endRow - startRow, startRow);
+        
+        console.log('SQLite query:', sql, params);
+        
+        // Execute query
+        return new Promise((resolve, reject) => {
+            try {
+                const results = [];
+                db.exec({
+                    sql: sql,
+                    bind: params,
+                    rowMode: 'object',
+                    callback: (row) => {
+                        results.push(row);
+                    }
+                });
+                resolve(results);
+            } catch (error) {
+                reject(error);
+            }
+        });
     }
 
 
@@ -117,12 +267,17 @@ const getStoreSvc = (options) => () => {
             await connection.initDb({ name: "mainDB", tables: [{ name: "mainTable", columns: colDef }] });
             const count = await connection.count({ from: 'mainTable' });
             console.log('IndexedDB initialized successfully, count:', count);
-            options?.useSqlite && initSqlite(data);
+            if (options?.useSqlite) {
+                await initSqlite(data);
+            }
             return count
         },
         query: async (request) => {
             const now = Date.now();
-            const result = await connection.select(getSelector(request)).then(rows => {
+            const queryFn = options?.useSqlite ? querySqlite : queryJsStore;
+            const source = options?.useSqlite ? 'SQLite' : 'IndexedDB';
+            
+            const result = await queryFn(request).then(rows => {
                 if (request.groupBy?.fields?.length) {
                     const key = request.groupBy.fields[0],
                         aggs = request.groupBy.aggs.map(x => ({ field: x.field, aggField: `${x.aggFunc}(${x.field})` }));
@@ -133,13 +288,45 @@ const getStoreSvc = (options) => () => {
                         return newRow;
                     });
                 }
-                console.log(`Data from IndexedDB: ${rows.length} rows on ${Date.now() - now}ms`); //rows
+                console.log(`Data from ${source}: ${rows.length} rows on ${Date.now() - now}ms`);
                 return rows;
             }).catch(error => {
-                console.error('Error reading data from IndexedDB:', error);
+                console.error(`Error reading data from ${source}:`, error);
                 return [];
             });
             return result
+        },
+        getCount: async (filterBy) => {
+            if (options?.useSqlite && db) {
+                // Use SQLite for count
+                let sql = 'SELECT COUNT(*) as count FROM mainTable';
+                const whereClause = buildSqlWhereClause(filterBy);
+                sql += whereClause.sql;
+                
+                return new Promise((resolve, reject) => {
+                    try {
+                        let count = 0;
+                        db.exec({
+                            sql: sql,
+                            bind: whereClause.params,
+                            callback: (row) => {
+                                count = row[0];
+                            }
+                        });
+                        resolve(count);
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            } else {
+                // Use IndexedDB for count
+                const selector = { from: 'mainTable' };
+                const where = buildWhereClause(filterBy);
+                if (where) {
+                    selector.where = where;
+                }
+                return await connection.count(selector);
+            }
         },
         upsert: async (rows) => {
             const count = await connection.insert({ into: 'mainTable', upsert: true, values: rows });

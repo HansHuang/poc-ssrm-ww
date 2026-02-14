@@ -32,4 +32,5 @@ pnpm run dev
 
 ### Compare Result of SSRM
 
-* __JSStore on IndexedDB__: avg 3700ms ~ 4500ms for 100k rows * 80 cols
+* __JSStore on IndexedDB__: avg __3700ms ~ 4500ms__ for 100k rows * 80 cols
+* **SQLite**: avg __400ms__ for 100K rows * 80 cols which is __10x__ better performance

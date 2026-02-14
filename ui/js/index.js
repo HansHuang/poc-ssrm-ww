@@ -1,5 +1,33 @@
 (async () => {
 
+    // Cookie helper functions
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
+    function setCookie(name, value, days = 365) {
+        const date = new Date();
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        const expires = `expires=${date.toUTCString()}`;
+        document.cookie = `${name}=${value};${expires};path=/`;
+    }
+
+    // Get SQLite preference from cookie
+    const useSqlite = getCookie('useSqlite') === 'true';
+    
+    // Set checkbox state
+    const checkbox = document.getElementById('useSqliteCheckbox');
+    if (checkbox) {
+        checkbox.checked = useSqlite;
+        checkbox.addEventListener('change', (e) => {
+            setCookie('useSqlite', e.target.checked);
+            location.reload();
+        });
+    }
+
     const gridOptions = {
         theme: agGrid.themeBalham,
         rowModelType: 'serverSide',
@@ -59,6 +87,12 @@
         return def;
     }
 
+    function updateFooter(displayCount, total) {
+        const footer = document.getElementById('gridFooter');
+        if (!footer) return;
+        footer.textContent = `Displaying ${displayCount} of ${total.toLocaleString()} rows`;
+    }
+
     function getUuid() {
         const uuid = new Uint32Array(4);
         window.crypto.getRandomValues(uuid);
@@ -70,6 +104,10 @@
 
     const msgQueue = {},
         myWorker = new Worker(`/app/js/worker.js`);
+    
+    // Send SQLite config to worker
+    myWorker.postMessage({ type: 'init', payload: { useSqlite } });
+    
     myWorker.addEventListener('message', function (e) {
         const { uuid, type, payload } = e.data;
         if (type === 'initRow') {
@@ -79,9 +117,13 @@
         } else if (type === 'resRows') {
             const { params } = msgQueue[uuid] ?? {};
             delete msgQueue[uuid];
-            const { rows, pivotCols } = payload;
+            const { rows, pivotCols, totalCount } = payload;
             pivotCols && gridApi.setPivotResultColumns(pivotCols);
+
             params.success({ rowData: rows });
+
+            // Update footer after data is loaded
+            setTimeout(() => updateFooter(rows.length, totalCount), 100);
         }
     });
     gridApi.setGridOption('serverSideDatasource', {

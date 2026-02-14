@@ -4,53 +4,64 @@
     importScripts('/app/js/storeSvc.js');
 
     let idList = [];
-    const storeSvc = getStoreSvc({useSqlite: true})(),
-        dataSvc = getDataSvc({
-            targetSize: 100 * 1000,
-            JsStore,
-            onInitLoad: (rows) => {
-                idList = rows.map(x => x.id);
-                storeSvc.clear();
-                storeSvc.upsert(rows);
-            },
-            onNextLoad: (rows) => {
-                // postMessage({ type: 'transaction', payload: { add: rows } });
-                rows.forEach(row => idList.push(row.id));
-                storeSvc.upsert(rows);
-            },
-            onRealtime: (rows) => {
-                const transaction = { add: [], update: [] };
-                rows.forEach(row => {
-                    if (idList.indexOf(row.id) > -1) {
-                        transaction.update.push(row);
-                    } else {
-                        idList.push(row.id);
-                        transaction.add.push(row);
-                    }
-                });
-                postMessage({ type: 'transaction', payload: transaction });
-                storeSvc.upsert(rows);
-            }
-        })();
+    let storeSvc = null;
+    let initialized = false;
 
-    const initRow = await dataSvc.init();
-    if (!initRow) {
-        console.error('Failed to initialize data service');
-        return;
-    }
-    const count = await storeSvc.init(initRow);
-    if (count < 100) {
-        console.log('IndexedDB is empty, loading data...');
-        await dataSvc.load();
-    }
-    postMessage({ type: 'initRow', payload: initRow });
-
-    // dataSvc.listen();
-
-    // webworker query/response
+    // Single message handler for all message types
     onmessage = async function (e) {
         const { uuid, type, payload } = e.data;
-        if (type === 'getRows') {
+
+        if (type === 'init') {
+            // Initialize worker with config
+            const { useSqlite } = payload;
+            storeSvc = getStoreSvc({ useSqlite })();
+
+            // Create dataSvc after storeSvc (which loads JsStore)
+            let dataSvc = getDataSvc({
+                targetSize: 100 * 1000,
+                JsStore,
+                onInitLoad: (rows) => {
+                    idList = rows.map(x => x.id);
+                    storeSvc.clear();
+                    storeSvc.upsert(rows);
+                },
+                onNextLoad: (rows) => {
+                    rows.forEach(row => idList.push(row.id));
+                    storeSvc.upsert(rows);
+                },
+                onRealtime: (rows) => {
+                    const transaction = { add: [], update: [] };
+                    rows.forEach(row => {
+                        if (idList.indexOf(row.id) > -1) {
+                            transaction.update.push(row);
+                        } else {
+                            idList.push(row.id);
+                            transaction.add.push(row);
+                        }
+                    });
+                    postMessage({ type: 'transaction', payload: transaction });
+                    storeSvc.upsert(rows);
+                }
+            })();
+
+            const initRow = await dataSvc.init();
+            if (!initRow) {
+                console.error('Failed to initialize data service');
+                return;
+            }
+            const count = await storeSvc.init(initRow);
+            if (count < 100) {
+                console.log('IndexedDB is empty, loading data...');
+                await dataSvc.load();
+            }
+            initialized = true;
+            postMessage({ type: 'initRow', payload: initRow });
+            // dataSvc.listen();
+        } else if (type === 'getRows') {
+            if (!initialized) {
+                console.error('Worker not initialized yet');
+                return;
+            }
             console.log('[Worker] getRows payload:', payload);
             //sorting
             const sortBy = payload.sortModel.filter(x => !x.colId.startsWith('ag-Grid')).map(x => ({ key: x.colId, order: x.sort })),
@@ -75,8 +86,9 @@
             }
             // query
             const rows = await storeSvc.query({ startRow, endRow, filterBy, sortBy, groupBy });
+            const totalCount = await storeSvc.getCount(filterBy);
             if (!payload.pivotMode) {
-                postMessage({ uuid, type: 'resRows', payload: { rows } });
+                postMessage({ uuid, type: 'resRows', payload: { rows, totalCount } });
                 return;
             }
             //process pivoting result
@@ -120,7 +132,7 @@
                 cols.push(item);
             });
             console.log('pivotData:', pivotData, 'pivotCols:', pivotCols)
-            postMessage({ uuid, type: 'resRows', payload: { rows: pivotData, pivotCols } });
+            postMessage({ uuid, type: 'resRows', payload: { rows: pivotData, pivotCols, totalCount } });
         }
     };
 
